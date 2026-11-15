@@ -189,9 +189,25 @@ footer p+p{margin-top:4px;opacity:.8}
 #confetti{position:fixed;inset:0;pointer-events:none;z-index:70}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.pad{position:absolute;border-radius:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;outline:none;z-index:2}
+.pad:focus-visible{box-shadow:0 0 0 3px var(--gold)}
+#nameEdit{position:absolute;z-index:3;background:transparent;border:0;outline:none;text-align:center;padding:0;margin:0;
+  font-family:Georgia,"Times New Roman","Noto Serif",serif;font-weight:700;color:#14284b;caret-color:#14284b;
+  -webkit-appearance:none;appearance:none;border-radius:0;width:100%}
+details{margin-top:14px}
+details summary{cursor:pointer;color:var(--gold);font-size:.9rem;padding:4px 0}
+.cropmodal{width:min(100%,580px)}
+.cropstage{display:grid;place-items:center;margin:8px auto 12px}
+#cropCanvas{display:block;border-radius:10px;background:#000;touch-action:none;outline:none;max-width:100%}
+#cropCanvas:focus-visible{box-shadow:0 0 0 3px var(--gold)}
+.drop.small{padding:14px}
+#glitter{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.wrap{z-index:1}
 </style>
 </head>
 <body>
+<canvas id="glitter" aria-hidden="true"></canvas>
 <div class="wrap">
   <header>
     <span class="eyebrow">CA Students International Conference 2026</span>
@@ -210,92 +226,60 @@ footer p+p{margin-top:4px;opacity:.8}
       <div class="stage-inner" id="stageInner">
         <canvas id="view" role="img" aria-label="Poster preview"></canvas>
         <canvas id="sparkles" aria-hidden="true"></canvas>
-        <div id="dragpad" role="button" tabindex="0" aria-label="Add your photo"></div>
+        <div id="photoPad" class="pad" role="button" tabindex="0" aria-label="Add your photo"></div>
+        <div id="platePad" class="pad" role="button" tabindex="0" aria-label="Tap to type your name"></div>
+        <input id="nameEdit" type="text" maxlength="36" autocomplete="name" autocapitalize="words" enterkeyhint="done" aria-label="Your name" hidden>
       </div>
-      <p class="stage-hint" id="stageHint">Tap the frame to add your photo</p>
-      <div class="formats seg" role="group" aria-label="Export size" id="formats">
-        <button type="button" data-fmt="poster" aria-pressed="true">Poster</button>
-        <button type="button" data-fmt="story" aria-pressed="false">Story 9:16</button>
-        <button type="button" data-fmt="feed" aria-pressed="false">Feed 4:5</button>
-      </div>
+      <p class="stage-hint" id="stageHint"></p>
     </section>
 
     <!-- ═════ CONTROLS ═════ -->
-    <section class="panel" aria-label="Customise your frame">
-      <!-- 1 PHOTO -->
+    <section class="panel" aria-label="Make your frame">
       <div class="card" id="cardPhoto">
         <h2><span class="num"><span>1</span></span> Add your photo</h2>
         <label class="drop" id="drop" for="photoInput">
           <span class="ic">📸</span>
-          <b id="dropTitle">Choose a photo</b>
-          <small>JPG / PNG · or drag &amp; drop · or paste</small>
+          <b>Choose a photo</b>
+          <small>You’ll crop it next · JPG / PNG</small>
         </label>
         <input type="file" id="photoInput" accept="image/*" hidden>
         <input type="file" id="camInput" accept="image/*" capture="user" hidden>
         <div class="row" style="margin-top:10px" id="camRow" hidden>
           <button class="btn ghost" type="button" id="camBtn">🤳 Take a selfie</button>
         </div>
-
-        <div id="photoTools" class="tools" hidden style="margin-top:14px">
-          <div>
-            <label class="lbl" for="zoom">Zoom &amp; position <span style="opacity:.7">(drag the photo on the poster)</span></label>
-            <div class="zoomrow"><span aria-hidden="true">−</span><input type="range" id="zoom" min="100" max="500" value="100" aria-label="Zoom"><span aria-hidden="true">+</span></div>
-          </div>
-          <div class="iconbtns">
-            <button class="btn ghost" type="button" id="rotL" title="Rotate left">⟲ Rotate</button>
-            <button class="btn ghost" type="button" id="rotR" title="Rotate right">⟳ Rotate</button>
-            <button class="btn ghost" type="button" id="flip" title="Mirror">⇋ Mirror</button>
-            <button class="btn ghost" type="button" id="reset" title="Reset position">↺ Reset</button>
-            <button class="btn ghost" type="button" id="removePhoto" title="Remove photo">🗑 Remove</button>
-          </div>
-          <div>
-            <label class="lbl">Photo look</label>
-            <div class="chiprow" id="presets" role="group" aria-label="Photo look"></div>
-          </div>
-          <div>
-            <label class="lbl" for="bright">Brightness</label>
-            <input type="range" id="bright" min="-50" max="50" value="0" aria-label="Brightness">
-          </div>
+        <div class="row" id="photoActions" hidden>
+          <button class="btn ghost" type="button" id="recrop">✂️ Crop / adjust</button>
+          <label class="btn ghost" for="photoInput">🔄 Change photo</label>
         </div>
         <p class="privacy">🔒 Your photo is processed on your device and never uploaded.</p>
       </div>
 
-      <!-- 2 NAME -->
       <div class="card" id="cardName">
         <h2><span class="num"><span>2</span></span> Your name</h2>
-        <label class="lbl" for="nameInput">Full name (shown on the name plate)</label>
-        <input type="text" id="nameInput" maxlength="36" autocomplete="name" autocapitalize="words" placeholder="e.g. Your Full Name" enterkeyhint="done">
+        <label class="lbl" for="nameInput">Full name <span style="opacity:.7">(or tap the name plate on the poster)</span></label>
+        <input type="text" id="nameInput" maxlength="36" autocomplete="name" autocapitalize="words" placeholder="e.g. Soham Mehta" enterkeyhint="done">
         <div class="meta"><span id="nameNote">Auto-fits the plate</span><span id="nameCount">0 / 36</span></div>
-
-        <label class="lbl">Style</label>
-        <div class="chiprow" id="fonts" role="group" aria-label="Name font"></div>
-
-        <label class="lbl">Ink colour</label>
-        <div class="swatches" id="swatches" role="group" aria-label="Name colour"></div>
-
-        <label class="check"><input type="checkbox" id="autoCap" checked> Tidy capitals (e.g. “soham mehta” → “Soham Mehta”)</label>
       </div>
 
-      <!-- 3 DOWNLOAD -->
       <div class="card" id="cardDl">
-        <h2><span class="num"><span>3</span></span> Download &amp; share</h2>
-        <label class="lbl">File type</label>
-        <div class="seg" id="outSeg" role="group" aria-label="File type">
-          <button type="button" data-out="jpg" aria-pressed="true">JPG · small, great for WhatsApp</button>
-          <button type="button" data-out="png" aria-pressed="false">PNG · best quality</button>
-        </div>
-        <label class="check" id="hdRow"><input type="checkbox" id="hd" checked> HD (2× resolution)</label>
-        <div style="height:14px"></div>
+        <h2><span class="num"><span>3</span></span> Download</h2>
         <button class="btn primary big" type="button" id="dlBtn">⬇️ Download my frame</button>
         <div class="row" style="margin-top:10px">
           <button class="btn ghost" type="button" id="shareBtn">📤 Share</button>
           <button class="btn ghost" type="button" id="copyBtn">📋 Copy caption</button>
         </div>
-        <label class="lbl" for="caption" style="margin-top:14px">Caption <span style="opacity:.7">(edit if you like)</span></label>
-        <textarea id="caption"></textarea>
+        <details>
+          <summary>More sizes &amp; caption</summary>
+          <label class="lbl">Instagram / LinkedIn sizes</label>
+          <div class="row">
+            <button class="btn ghost" type="button" id="dlStory">Story 9:16</button>
+            <button class="btn ghost" type="button" id="dlFeed">Feed 4:5</button>
+          </div>
+          <label class="lbl" for="caption">Caption <span style="opacity:.7">(edit if you like)</span></label>
+          <textarea id="caption"></textarea>
+        </details>
       </div>
 
-      <!-- REGISTER -->
       <div class="card reg" id="cardReg">
         <p>Not registered yet? Register through the official WIRC event page (same as the QR code on the poster).</p>
         <a class="btn ghost" id="regBtn" target="_blank" rel="noopener noreferrer">📝 Register</a>
@@ -327,6 +311,20 @@ footer p+p{margin-top:4px;opacity:.8}
     </div>
   </div>
 </div>
+<div class="overlay" id="cropOverlay" role="dialog" aria-modal="true" aria-labelledby="cropTitle">
+  <div class="modal cropmodal">
+    <h3 id="cropTitle">✂️ Crop your photo</h3>
+    <p>Drag the box to move it · drag a corner to resize</p>
+    <div class="cropstage"><canvas id="cropCanvas" tabindex="0" aria-label="Crop area. Arrow keys move the box, plus and minus resize it."></canvas></div>
+    <div class="row">
+      <button class="btn ghost" type="button" id="cropRot">⟳ Rotate</button>
+    </div>
+    <div class="row">
+      <button class="btn primary" type="button" id="cropApply">✅ Use this crop</button>
+      <button class="btn ghost" type="button" id="cropCancel">✖ Cancel</button>
+    </div>
+  </div>
+</div>
 <div id="toast" role="status" aria-live="polite"></div>
 <canvas id="confetti" aria-hidden="true"></canvas>
 <noscript><p style="text-align:center;padding:20px">Please enable JavaScript to create your frame.</p></noscript>
@@ -346,49 +344,24 @@ const CONFIG = {
 
 /* ════════════════ POSTER GEOMETRY (poster pixels, 794 × 1442) ════════════════ */
 const P     = { W: 794, H: 1442 };
-// Photo window: measured from the poster. Rounded top corners, nearly square bottom (tucked behind the name plate).
-const WIN   = { x: 214, y: 582, w: 368, h: 288, rt: 38, rb: 6 };
-// Name plate (hexagonal ribbon). Text is fitted inside a safe rectangle well clear of the pointed ends.
-const PLATE = { cx: 398, cy: 914.5, w: 470, maxFont: 36, minFont: 10 };
-const FORMATS = {
-  poster: { label: 'Poster' },
-  story : { label: 'Story 9:16', w: 1080, h: 1920 },
-  feed  : { label: 'Feed 4:5',   w: 1080, h: 1350 },
-};
-const PRESETS = {
-  original: { label: 'Original' },
-  auto    : { label: 'Auto ✨', auto: true, c: .05, s: .12 },
-  vivid   : { label: 'Vivid',  c: .15, s: .35 },
-  warm    : { label: 'Warm',   w: .8, s: .1, b: .02 },
-  soft    : { label: 'Soft',   c: -.12, b: .06, s: .05 },
-  bw      : { label: 'B&W',    s: -1, c: .2 },
-};
-const FONTS = {
-  classic: { label: 'Classic', css: s => `700 ${s}px Georgia, "Times New Roman", "Noto Serif", serif` },
-  modern : { label: 'Modern',  css: s => `700 ${s}px "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif` },
-  elegant: { label: 'Elegant', css: s => `italic 700 ${s}px Georgia, "Palatino Linotype", "Book Antiqua", serif` },
-};
-const COLORS = [
-  ['Navy', '#14284b'], ['Maroon', '#6b1a24'], ['Brown', '#5a3410'], ['Emerald', '#0f4d3a'], ['Black', '#1a1a1a'],
-];
+const WIN   = { x: 214, y: 582, w: 368, h: 288, rt: 38, rb: 6 };      // photo window (rounded top, tucked bottom)
+const PLATE = { cx: 398, cy: 914.5, w: 470, maxFont: 36, minFont: 10 }; // name text safe area
+const AR    = WIN.w / WIN.h;
+const NAME_COLOR = '#14284b';
+const FONT  = s => `700 ${s}px Georgia, "Times New Roman", "Noto Serif", serif`;
+const FORMATS = { poster: {}, story: { w: 1080, h: 1920 }, feed: { w: 1080, h: 1350 } };
 
 /* ════════════════ STATE ════════════════ */
-const S = {
-  src: null, srcW: 0, srcH: 0,
-  zoom: 1, dx: 0, dy: 0, rot: 0, flip: false,
-  preset: 'original', bright: 0, autoLo: 0, autoHi: 255,
-  name: '', font: 'classic', color: COLORS[0][1], autoCap: true,
-  format: 'poster', out: 'jpg', hd: true,
-};
+const S = { orig: null, photo: null, crop: null, name: '', editing: false };
 
 /* ════════════════ HELPERS ════════════════ */
-const $  = (s, r = document) => r.querySelector(s);
+const $ = (s, r = document) => r.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isCoarse = matchMedia('(pointer: coarse)').matches;
 const store = {
-  get() { try { return JSON.parse(localStorage.getItem('vsf-v2') || '{}'); } catch { return {}; } },
-  set(o) { try { localStorage.setItem('vsf-v2', JSON.stringify(o)); } catch {} },
+  get() { try { return JSON.parse(localStorage.getItem('vsf-v3') || '{}'); } catch { return {}; } },
+  set(o) { try { localStorage.setItem('vsf-v3', JSON.stringify(o)); } catch {} },
 };
 let toastT;
 function toast(msg, ms = 2600) {
@@ -396,14 +369,12 @@ function toast(msg, ms = 2600) {
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms);
 }
 function pulse(el) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' }); }
-
-function displayName() {
-  let n = S.name.replace(/\s+/g, ' ').trim();
-  if (S.autoCap && n && (n === n.toLowerCase() || n === n.toUpperCase())) {
-    n = n.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
-  }
+function tidy(raw) {
+  let n = raw.replace(/\s+/g, ' ').trim();
+  if (n && (n === n.toLowerCase() || n === n.toUpperCase())) n = n.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
   return n;
 }
+const displayName = () => tidy(S.name);
 
 /* ════════════════ POSTER IMAGE ════════════════ */
 const posterImg = new Image();
@@ -419,100 +390,27 @@ function makeBlurBg() {
 
 /* ════════════════ LAYOUT ════════════════ */
 function layout(fmt, mode) {
-  if (fmt === 'poster') {
-    const k = mode === 'export' ? (S.hd ? 2 : 1) : 1;
-    return { cw: P.W * k, ch: P.H * k, s: k, ox: 0, oy: 0, card: false };
-  }
+  if (fmt === 'poster') { const k = mode === 'export' ? 2 : 1; return { cw: P.W * k, ch: P.H * k, s: k, ox: 0, oy: 0, card: false }; }
   const f = FORMATS[fmt], u = mode === 'export' ? 1 : 0.5;
   const cw = Math.round(f.w * u), ch = Math.round(f.h * u);
   const s = Math.min(cw / P.W, ch / P.H) * 0.94;
   return { cw, ch, s, ox: (cw - P.W * s) / 2, oy: (ch - P.H * s) / 2, card: true };
 }
 
-/* ════════════════ PHOTO PIPELINE ════════════════ */
-const pc = document.createElement('canvas');
-const pctx = pc.getContext('2d', { willReadFrequently: true });
-
-function geom() {
-  const odd = S.rot % 2 === 1;
-  const rw = odd ? S.srcH : S.srcW, rh = odd ? S.srcW : S.srcH;
-  const cover = Math.max(WIN.w / rw, WIN.h / rh);
-  const sc = cover * S.zoom;
-  return { rw, rh, sc, maxX: Math.max(0, (rw * sc - WIN.w) / 2), maxY: Math.max(0, (rh * sc - WIN.h) / 2) };
-}
-function clampPan() { const g = geom(); S.dx = clamp(S.dx, -g.maxX, g.maxX); S.dy = clamp(S.dy, -g.maxY, g.maxY); }
-function resetPosition(keepZoom) {
-  if (!keepZoom) S.zoom = 1;
-  S.dx = 0;
-  // Portraits: bias towards the upper part of the picture, where faces usually are.
-  const g = geom(); S.dy = (0.5 - 0.38) * g.rh * g.sc; clampPan();
-}
-
-function buildPhoto(pw, ph) {
-  if (pc.width !== pw || pc.height !== ph) { pc.width = pw; pc.height = ph; }
-  const k = pw / WIN.w;
-  pctx.setTransform(1, 0, 0, 1, 0, 0);
-  pctx.fillStyle = '#f3ede2'; pctx.fillRect(0, 0, pw, ph);
-  const g = geom();
-  pctx.imageSmoothingEnabled = true; pctx.imageSmoothingQuality = 'high';
-  pctx.translate(pw / 2 + S.dx * k, ph / 2 + S.dy * k);
-  pctx.scale(S.flip ? -1 : 1, 1);
-  pctx.rotate(S.rot * Math.PI / 2);
-  pctx.scale(g.sc * k, g.sc * k);
-  pctx.drawImage(S.src, -S.srcW / 2, -S.srcH / 2);
-  pctx.setTransform(1, 0, 0, 1, 0, 0);
-  applyFilter(pctx, pw, ph);
-  return pc;
-}
-
-function applyFilter(ctx, w, h) {
-  const p = PRESETS[S.preset];
-  const f = { auto: !!p.auto, c: p.c || 0, s: p.s || 0, w: p.w || 0, b: (p.b || 0) + S.bright / 100 };
-  if (!f.auto && !f.c && !f.s && !f.w && !f.b) return;
-  const img = ctx.getImageData(0, 0, w, h), d = img.data;
-  const lo = f.auto ? S.autoLo : 0, hi = f.auto ? S.autoHi : 255, span = Math.max(1, hi - lo);
-  const off = [f.w * 18, 0, -f.w * 18];
-  const lut = [0, 1, 2].map(ch => {
-    const t = new Uint8ClampedArray(256);
-    for (let v = 0; v < 256; v++) {
-      let x = (v - lo) / span * 255; x += f.b * 80; x = (x - 128) * (1 + f.c) + 128; t[v] = x + off[ch];
-    }
-    return t;
-  });
-  const sat = 1 + f.s;
-  for (let i = 0; i < d.length; i += 4) {
-    let r = lut[0][d[i]], g = lut[1][d[i + 1]], b = lut[2][d[i + 2]];
-    if (f.s) { const y = .299 * r + .587 * g + .114 * b; r = y + (r - y) * sat; g = y + (g - y) * sat; b = y + (b - y) * sat; }
-    d[i] = r; d[i + 1] = g; d[i + 2] = b;
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
-function computeAuto() {
-  const sc = 96 / Math.max(S.srcW, S.srcH);
-  const t = document.createElement('canvas'); t.width = Math.max(1, Math.round(S.srcW * sc)); t.height = Math.max(1, Math.round(S.srcH * sc));
-  const x = t.getContext('2d', { willReadFrequently: true }); x.drawImage(S.src, 0, 0, t.width, t.height);
-  const d = x.getImageData(0, 0, t.width, t.height).data, hist = new Uint32Array(256);
-  for (let i = 0; i < d.length; i += 4) hist[Math.round(.299 * d[i] + .587 * d[i + 1] + .114 * d[i + 2])]++;
-  const total = t.width * t.height; let acc = 0, lo = 0, hi = 255;
-  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= total * .01) { lo = v; break; } }
-  acc = 0; for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= total * .01) { hi = v; break; } }
-  S.autoLo = Math.min(lo, 70); S.autoHi = Math.max(hi, 185);
-}
-
 /* ════════════════ DRAWING ════════════════ */
-function winPath(ctx, pad = 0) {
-  const { x, y, w, h, rt, rb } = WIN, x0 = x - pad, y0 = y - pad, x1 = x + w + pad, y1 = y + h + pad;
+function winPath(ctx) {
+  const { x, y, w, h, rt, rb } = WIN, x1 = x + w, y1 = y + h;
   ctx.beginPath();
-  ctx.moveTo(x0 + rt, y0); ctx.lineTo(x1 - rt, y0); ctx.arcTo(x1, y0, x1, y0 + rt, rt);
+  ctx.moveTo(x + rt, y); ctx.lineTo(x1 - rt, y); ctx.arcTo(x1, y, x1, y + rt, rt);
   ctx.lineTo(x1, y1 - rb); ctx.arcTo(x1, y1, x1 - rb, y1, rb);
-  ctx.lineTo(x0 + rb, y1); ctx.arcTo(x0, y1, x0, y1 - rb, rb);
-  ctx.lineTo(x0, y0 + rt); ctx.arcTo(x0, y0, x0 + rt, y0, rt); ctx.closePath();
+  ctx.lineTo(x + rb, y1); ctx.arcTo(x, y1, x, y1 - rb, rb);
+  ctx.lineTo(x, y + rt); ctx.arcTo(x, y, x + rt, y, rt); ctx.closePath();
 }
 function rrect(ctx, x, y, w, h, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
+const UI_FONT = '"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif';
 
 function drawPlaceholder(ctx) {
   const g = ctx.createLinearGradient(WIN.x, WIN.y, WIN.x + WIN.w, WIN.y + WIN.h);
@@ -520,41 +418,47 @@ function drawPlaceholder(ctx) {
   ctx.fillStyle = g; ctx.fillRect(WIN.x, WIN.y, WIN.w, WIN.h);
   const cx = WIN.x + WIN.w / 2, cy = WIN.y + WIN.h / 2 - 22;
   ctx.save(); ctx.strokeStyle = 'rgba(20,45,110,.6)'; ctx.fillStyle = 'rgba(20,45,110,.6)'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
-  // camera glyph
   rrect(ctx, cx - 34, cy - 20, 68, 48, 9); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx - 14, cy - 20); ctx.lineTo(cx - 8, cy - 31); ctx.lineTo(cx + 8, cy - 31); ctx.lineTo(cx + 14, cy - 20); ctx.stroke();
   ctx.beginPath(); ctx.arc(cx, cy + 4, 14, 0, Math.PI * 2); ctx.stroke();
   ctx.setLineDash([7, 6]); ctx.lineWidth = 2; rrect(ctx, WIN.x + 14, WIN.y + 14, WIN.w - 28, WIN.h - 28, 22); ctx.stroke(); ctx.setLineDash([]);
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.font = '700 21px "Segoe UI", system-ui, Arial, sans-serif'; ctx.fillText('Tap to add your photo', cx, cy + 66);
-  ctx.font = '400 14px "Segoe UI", system-ui, Arial, sans-serif'; ctx.globalAlpha = .8; ctx.fillText('JPG or PNG · stays on your device', cx, cy + 88);
+  ctx.font = `700 22px ${UI_FONT}`; ctx.fillText('Tap to add your photo', cx, cy + 66);
+  ctx.font = `400 14px ${UI_FONT}`; ctx.globalAlpha = .8; ctx.fillText('JPG or PNG · stays on your device', cx, cy + 90);
+  ctx.restore();
+}
+function drawCropChip(ctx) {
+  const cx = WIN.x + WIN.w / 2, cy = WIN.y + WIN.h - 26, txt = '✂  Tap to crop';
+  ctx.save(); ctx.font = `600 15px ${UI_FONT}`;
+  const w = ctx.measureText(txt).width + 28; rrect(ctx, cx - w / 2, cy - 14, w, 28, 14);
+  ctx.fillStyle = 'rgba(8,16,52,.74)'; ctx.fill(); ctx.fillStyle = '#fff3cf'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, cx, cy + 1);
   ctx.restore();
 }
 
 function drawName(ctx, mode) {
-  let txt = displayName(), ghost = false;
-  if (!txt) { if (mode !== 'preview') return; txt = 'Your Name'; ghost = true; }
-  const font = FONTS[S.font];
-  let size = PLATE.maxFont; ctx.font = font.css(size);
+  const editing = mode === 'preview' && S.editing;
+  let txt = editing ? S.name.replace(/\s+/g, ' ') : displayName(), ghost = false;
+  if (!txt.trim()) { if (mode !== 'preview') return; if (editing) txt = ' '; else { txt = 'Tap to type your name'; ghost = true; } }
+  let size = ghost ? 26 : PLATE.maxFont; ctx.font = FONT(size);
   const w = ctx.measureText(txt).width;
   if (w > PLATE.w) size = Math.max(PLATE.minFont, size * PLATE.w / w);
-  ctx.font = font.css(size);
-  // last resort (extreme widths): squeeze horizontally instead of ever overflowing the plate
+  ctx.font = FONT(size);
   const w2 = ctx.measureText(txt).width, sx = w2 > PLATE.w ? PLATE.w / w2 : 1;
+  const info = { size, squeezed: sx < 1 };
+  if (editing) return info;                       // the live <input> shows the text while typing
   const capH = ctx.measureText('H').actualBoundingBoxAscent || size * .7;
   ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.translate(PLATE.cx, PLATE.cy + capH / 2); ctx.scale(sx, 1);
-  if (ghost) ctx.globalAlpha = .38;
-  ctx.fillStyle = 'rgba(255,255,255,.65)'; ctx.fillText(txt, 0, 1);      // soft emboss highlight
-  ctx.fillStyle = ghost ? '#14284b' : S.color; ctx.fillText(txt, 0, 0);
+  if (ghost) ctx.globalAlpha = .42;
+  ctx.fillStyle = 'rgba(255,255,255,.65)'; ctx.fillText(txt, 0, 1);
+  ctx.fillStyle = NAME_COLOR; ctx.fillText(txt, 0, 0);
   ctx.restore();
-  return { size, squeezed: sx < 1 };
+  return info;
 }
 
 let lastLayout = null;
-function render(ctx, mode) {
-  const L = layout(S.format, mode);
-  const cv = ctx.canvas;
+function render(ctx, mode, fmt = 'poster') {
+  const L = layout(fmt, mode), cv = ctx.canvas;
   if (cv.width !== L.cw || cv.height !== L.ch) { cv.width = L.cw; cv.height = L.ch; }
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, L.cw, L.ch);
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
@@ -575,69 +479,63 @@ function render(ctx, mode) {
   ctx.translate(L.ox, L.oy); ctx.scale(L.s, L.s);
   ctx.drawImage(posterImg, 0, 0, P.W, P.H);
 
-  // ── photo, hard-clipped to the window ──
+  // photo — hard-clipped to the window shape, so it can never spill
   ctx.save(); winPath(ctx); ctx.clip();
-  if (S.src) ctx.drawImage(buildPhoto(Math.max(1, Math.round(WIN.w * L.s)), Math.max(1, Math.round(WIN.h * L.s))), WIN.x, WIN.y, WIN.w, WIN.h);
+  if (S.photo) ctx.drawImage(S.photo, WIN.x, WIN.y, WIN.w, WIN.h);
   else if (mode === 'preview') drawPlaceholder(ctx);
   else { ctx.fillStyle = '#f3ede2'; ctx.fillRect(WIN.x, WIN.y, WIN.w, WIN.h); }
-  // inner shadow for depth (the fill sits outside the clip; only its shadow lands inside)
-  ctx.save();
+  ctx.save();                                    // soft inner shadow for depth
   ctx.shadowColor = 'rgba(40,10,10,.55)'; ctx.shadowBlur = 11 * L.s; ctx.fillStyle = '#000';
   ctx.beginPath(); ctx.rect(WIN.x - 80, WIN.y - 80, WIN.w + 160, WIN.h + 160);
-  const { x, y, w, h, rt, rb } = WIN; // window outline appended for even-odd cut-out
+  const { x, y, w, h, rt, rb } = WIN;
   ctx.moveTo(x + rt, y); ctx.lineTo(x + w - rt, y); ctx.arcTo(x + w, y, x + w, y + rt, rt); ctx.lineTo(x + w, y + h - rb);
   ctx.arcTo(x + w, y + h, x + w - rb, y + h, rb); ctx.lineTo(x + rb, y + h); ctx.arcTo(x, y + h, x, y + h - rb, rb);
   ctx.lineTo(x, y + rt); ctx.arcTo(x, y, x + rt, y, rt); ctx.closePath();
   ctx.fill('evenodd'); ctx.restore();
   ctx.restore();
-  // fine gold hairline to blend the photo into the poster's own border
   winPath(ctx); ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(236,200,110,.9)'; ctx.stroke();
+  if (mode === 'preview' && S.photo) drawCropChip(ctx);
 
   const nm = drawName(ctx, mode);
   ctx.restore();
-
   if (mode === 'preview') lastLayout = { ...L, nm };
   return L;
 }
 
 /* ════════════════ PREVIEW LOOP ════════════════ */
 const view = $('#view'), vctx = view.getContext('2d');
-const pad = $('#dragpad'), stageInner = $('#stageInner');
-let dirty = true;
-function requestRender() { dirty = true; }
+const stageInner = $('#stageInner'), photoPad = $('#photoPad'), platePad = $('#platePad'), nameEdit = $('#nameEdit'), nameInput = $('#nameInput');
+let dirty = true, focusBoost = false;
+const requestRender = () => { dirty = true; };
 
 function syncUI() {
-  const has = !!S.src;
-  $('#photoTools').hidden = !has;
-  $('#dropTitle').textContent = has ? 'Change photo' : 'Choose a photo';
+  const has = !!S.photo, nm = displayName();
+  $('#drop').hidden = has; $('#photoActions').hidden = !has;
   $('#cardPhoto').classList.toggle('done', has);
-  const nm = displayName();
   $('#cardName').classList.toggle('done', nm.length >= 2);
-  $('#stageHint').textContent = has ? 'Drag the photo to reposition · pinch or scroll to zoom' : 'Tap the frame to add your photo';
-  pad.classList.toggle('has-photo', has);
-  pad.setAttribute('role', has ? 'application' : 'button');
-  pad.setAttribute('aria-label', has ? 'Photo position. Arrow keys move the photo, plus and minus zoom, R rotates.' : 'Add your photo');
+  $('#stageHint').textContent = has ? 'Tap the photo to crop · tap the name plate to type your name' : 'Tap the photo box to add your photo · tap the name plate to type your name';
+  photoPad.setAttribute('aria-label', has ? 'Tap to crop or adjust your photo' : 'Tap to add your photo');
   view.setAttribute('aria-label', `Poster preview${nm ? ' for ' + nm : ''}${has ? ' with your photo' : ''}`);
-  $('#zoom').value = Math.round(S.zoom * 100);
   $('#nameCount').textContent = `${S.name.length} / 36`;
-  const note = $('#nameNote');
-  if (lastLayout && lastLayout.nm && (lastLayout.nm.size < 16 || lastLayout.nm.squeezed)) { note.textContent = 'Long name — shrunk to fit. A shorter form looks bolder.'; note.className = 'warn'; }
+  const note = $('#nameNote'), n = lastLayout && lastLayout.nm;
+  if (n && (n.size < 16 || n.squeezed) && !S.editing) { note.textContent = 'Long name — shrunk to fit. A shorter form looks bolder.'; note.className = 'warn'; }
   else { note.textContent = 'Auto-fits the plate'; note.className = ''; }
 }
-
 function placePad() {
   if (!lastLayout) return;
-  const L = lastLayout;
-  pad.style.left = ((L.ox + WIN.x * L.s) / L.cw * 100) + '%';
-  pad.style.top = ((L.oy + WIN.y * L.s) / L.ch * 100) + '%';
-  pad.style.width = (WIN.w * L.s / L.cw * 100) + '%';
-  pad.style.height = (WIN.h * L.s / L.ch * 100) + '%';
+  const L = lastLayout, pct = (v, t) => (v / t * 100) + '%';
+  const set = (el, x, y, w, h) => { el.style.left = pct(L.ox + x * L.s, L.cw); el.style.top = pct(L.oy + y * L.s, L.ch); el.style.width = pct(w * L.s, L.cw); el.style.height = pct(h * L.s, L.ch); };
+  set(photoPad, WIN.x, WIN.y, WIN.w, WIN.h);
+  set(platePad, 132, 876, 534, 78);
+  set(nameEdit, PLATE.cx - PLATE.w / 2, PLATE.cy - 27, PLATE.w, 54);
+  if (S.editing && L.nm) {
+    const fs = L.nm.size * L.s * stageInner.clientWidth / L.cw;
+    nameEdit.style.fontSize = (focusBoost ? Math.max(16, fs) : fs) + 'px';   // ≥16px at focus avoids iOS auto-zoom
+  }
 }
-
 function fitStage() {
-  const L = layout(S.format, 'preview'), ratio = L.cw / L.ch;
-  const avail = $('.stage').clientWidth;
-  const maxH = innerWidth >= 960 ? Math.max(520, innerHeight - 140) : Infinity;
+  const L = layout('poster', 'preview'), ratio = L.cw / L.ch;
+  const avail = $('.stage').clientWidth, maxH = innerWidth >= 960 ? Math.max(520, innerHeight - 140) : Infinity;
   stageInner.style.width = Math.min(avail, 500, maxH * ratio) + 'px';
 }
 
@@ -658,20 +556,17 @@ function frame() {
   drawSparkles();
   requestAnimationFrame(frame);
 }
-
-/* sparkles — decorative only, never exported */
 const stars = Array.from({ length: 34 }, () => ({ u: Math.random(), v: Math.random(), r: 2 + Math.random() * 4.5, ph: Math.random() * 6.28, sp: .6 + Math.random() * 1.4 }));
 const sctx = $('#sparkles').getContext('2d');
 function drawSparkles() {
   const sp = $('#sparkles'); if (!lastLayout) return;
-  if (reduceMotion) { if (!sp._once) { sp._once = 1; } else return; }
+  if (reduceMotion) { if (!sp._once) sp._once = 1; else return; }
   sctx.clearRect(0, 0, sp.width, sp.height);
   const t = performance.now() / 1000, L = lastLayout;
   for (const st of stars) {
-    const px = st.u * sp.width, py = st.v * sp.height;
-    const ux = (px - L.ox) / L.s, uy = (py - L.oy) / L.s;
-    if (ux > WIN.x - 12 && ux < WIN.x + WIN.w + 12 && uy > WIN.y - 12 && uy < WIN.y + WIN.h + 12) continue;           // never over the photo
-    if (uy > 865 && uy < 965 && ux > 115 && ux < 685) continue;                                                      // nor the name plate
+    const px = st.u * sp.width, py = st.v * sp.height, ux = (px - L.ox) / L.s, uy = (py - L.oy) / L.s;
+    if (ux > WIN.x - 12 && ux < WIN.x + WIN.w + 12 && uy > WIN.y - 12 && uy < WIN.y + WIN.h + 12) continue;
+    if (uy > 865 && uy < 965 && ux > 115 && ux < 685) continue;
     const a = Math.max(0, Math.sin(t * st.sp + st.ph)); if (a < .05) continue;
     const r = st.r * (sp.width / 794) * a;
     sctx.save(); sctx.translate(px, py); sctx.globalAlpha = a * .9; sctx.fillStyle = '#fff3cf'; sctx.shadowColor = '#f0cf7a'; sctx.shadowBlur = 8;
@@ -680,7 +575,26 @@ function drawSparkles() {
   }
 }
 
-/* ════════════════ PHOTO LOADING ════════════════ */
+/* ════════════════ TAP THE POSTER ════════════════ */
+const pickFile = () => $('#photoInput').click();
+photoPad.addEventListener('click', () => { if (S.photo) openCrop(); else pickFile(); });
+photoPad.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (S.photo) openCrop(); else pickFile(); } });
+
+function startNameEdit() {
+  if (S.editing) return;
+  S.editing = true; nameEdit.hidden = false; nameEdit.value = S.name; focusBoost = true;
+  render(vctx, 'preview'); placePad();           // position the input before focusing (iOS needs focus inside the tap)
+  nameEdit.focus(); const n = nameEdit.value.length; try { nameEdit.setSelectionRange(n, n); } catch {}
+  setTimeout(() => { focusBoost = false; requestRender(); }, 160);
+}
+platePad.addEventListener('click', startNameEdit);
+platePad.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startNameEdit(); } });
+nameEdit.addEventListener('input', () => { S.name = nameEdit.value; nameInput.value = S.name; persist(); requestRender(); updateCaption(); });
+nameEdit.addEventListener('blur', () => { S.editing = false; nameEdit.hidden = true; requestRender(); });
+nameEdit.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); nameEdit.blur(); } });
+nameInput.addEventListener('input', () => { S.name = nameInput.value; persist(); requestRender(); updateCaption(); });
+
+/* ════════════════ PHOTO LOADING → CROP ════════════════ */
 async function loadFile(file) {
   if (!file) return;
   if (!/^image\//.test(file.type) && !/\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i.test(file.name || '')) { toast('Please choose an image (JPG or PNG).'); return; }
@@ -691,111 +605,148 @@ async function loadFile(file) {
     const k = Math.min(1, 2400 / Math.max(w, h));
     const cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
     const c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(img, 0, 0, cv.width, cv.height);
-    S.src = cv; S.srcW = cv.width; S.srcH = cv.height; S.rot = 0; S.flip = false;
-    resetPosition(); computeAuto(); requestRender();
-    toast('Nice! Drag to adjust ✨');
+    openCrop(cv);
   } catch (e) {
     toast('Couldn’t read that photo. Try a JPG or PNG (iPhone: Settings › Camera › Formats › Most Compatible).', 5200);
   } finally { URL.revokeObjectURL(url); }
 }
-
-/* ════════════════ INTERACTION ════════════════ */
-const pointers = new Map(); let pinchD = 0, moved = false;
-pad.addEventListener('pointerdown', e => {
-  if (!S.src) return;
-  pad.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  moved = false; pad.classList.add('dragging');
-  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinchD = Math.hypot(a.x - b.x, a.y - b.y); }
-});
-pad.addEventListener('pointermove', e => {
-  const p = pointers.get(e.pointerId); if (!p) return;
-  const rect = pad.getBoundingClientRect(), k = WIN.w / rect.width;
-  if (pointers.size === 1) {
-    S.dx += (e.clientX - p.x) * k; S.dy += (e.clientY - p.y) * k; clampPan(); moved = true;
-  } else if (pointers.size === 2) {
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    const [a, b] = [...pointers.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-    if (pinchD) { S.zoom = clamp(S.zoom * d / pinchD, 1, 5); clampPan(); } pinchD = d; moved = true;
-  }
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); requestRender();
-});
-const endPtr = e => { pointers.delete(e.pointerId); pinchD = 0; if (!pointers.size) pad.classList.remove('dragging'); };
-pad.addEventListener('pointerup', endPtr); pad.addEventListener('pointercancel', endPtr);
-pad.addEventListener('click', () => { if (!S.src) $('#photoInput').click(); });
-pad.addEventListener('wheel', e => { if (!S.src) return; e.preventDefault(); S.zoom = clamp(S.zoom * Math.exp(-e.deltaY * .0016), 1, 5); clampPan(); requestRender(); }, { passive: false });
-pad.addEventListener('dblclick', () => { if (!S.src) return; S.zoom = S.zoom > 1.05 ? 1 : 2.2; clampPan(); requestRender(); });
-pad.addEventListener('keydown', e => {
-  if (!S.src) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#photoInput').click(); } return; }
-  const step = e.shiftKey ? 20 : 6; let used = true;
-  if (e.key === 'ArrowLeft') S.dx += step; else if (e.key === 'ArrowRight') S.dx -= step;
-  else if (e.key === 'ArrowUp') S.dy += step; else if (e.key === 'ArrowDown') S.dy -= step;
-  else if (e.key === '+' || e.key === '=') S.zoom = clamp(S.zoom * 1.08, 1, 5);
-  else if (e.key === '-') S.zoom = clamp(S.zoom / 1.08, 1, 5);
-  else if (e.key.toLowerCase() === 'r') { S.rot = (S.rot + 1) % 4; S.dx = S.dy = 0; }
-  else if (e.key === '0') resetPosition(); else used = false;
-  if (used) { e.preventDefault(); clampPan(); requestRender(); }
-});
-
 $('#photoInput').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
 $('#camInput').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
+$('#recrop').addEventListener('click', () => { if (S.photo) openCrop(); });
 if (isCoarse) { $('#camRow').hidden = false; $('#camBtn').addEventListener('click', () => $('#camInput').click()); }
-
 const drop = $('#drop');
 ['dragenter', 'dragover'].forEach(t => window.addEventListener(t, e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { e.preventDefault(); drop.classList.add('over'); } }));
-['dragleave', 'drop'].forEach(t => window.addEventListener(t, e => { if (t === 'drop' || e.target === document.documentElement || !e.relatedTarget) drop.classList.remove('over'); }));
+['dragleave', 'drop'].forEach(t => window.addEventListener(t, e => { if (t === 'drop' || !e.relatedTarget) drop.classList.remove('over'); }));
 window.addEventListener('drop', e => { const f = e.dataTransfer?.files?.[0]; if (f) { e.preventDefault(); loadFile(f); } });
 window.addEventListener('paste', e => { const it = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/')); if (it) loadFile(it.getAsFile()); });
 
-$('#zoom').addEventListener('input', e => { S.zoom = e.target.value / 100; clampPan(); requestRender(); });
-$('#bright').addEventListener('input', e => { S.bright = +e.target.value; requestRender(); persist(); });
-$('#rotL').addEventListener('click', () => { S.rot = (S.rot + 3) % 4; S.dx = S.dy = 0; resetPosition(true); requestRender(); });
-$('#rotR').addEventListener('click', () => { S.rot = (S.rot + 1) % 4; S.dx = S.dy = 0; resetPosition(true); requestRender(); });
-$('#flip').addEventListener('click', () => { S.flip = !S.flip; requestRender(); });
-$('#reset').addEventListener('click', () => { S.rot = 0; S.flip = false; resetPosition(); requestRender(); });
-$('#removePhoto').addEventListener('click', () => { S.src = null; requestRender(); });
+/* ════════════════ CROP MODAL ════════════════ */
+const cropOv = $('#cropOverlay'), cc = $('#cropCanvas'), cctx = cc.getContext('2d');
+const crop = { open: false, src: null, isNew: false, rot: 0, rc: null, dw: 0, dh: 0, fs: 1, dpr: 1, r: { x: 0, y: 0, w: 0, h: 0 }, mode: null, anchor: null, start: null };
+const ptrs = new Map();
+const MIN_W = 70, HIT = 28;
 
-/* name + style */
-const nameInput = $('#nameInput');
-nameInput.addEventListener('input', () => { S.name = nameInput.value; persist(); requestRender(); updateCaption(); });
-$('#autoCap').addEventListener('change', e => { S.autoCap = e.target.checked; persist(); requestRender(); updateCaption(); });
-
-function chipGroup(host, items, key, onChange, fontPreview) {
-  host.innerHTML = '';
-  for (const [id, it] of Object.entries(items)) {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = it.label; b.dataset.id = id;
-    if (fontPreview) b.style.font = it.css(15);
-    b.addEventListener('click', () => { S[key] = id; sync(); onChange(); });
-    host.appendChild(b);
-  }
-  const sync = () => host.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === S[key]));
-  sync(); return sync;
+function rotatedCanvas(src, rot) {
+  if (rot % 4 === 0) return src;
+  const odd = rot % 2 === 1, c = document.createElement('canvas');
+  c.width = odd ? src.height : src.width; c.height = odd ? src.width : src.height;
+  const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(rot * Math.PI / 2); x.drawImage(src, -src.width / 2, -src.height / 2);
+  return c;
 }
-let syncPresets, syncFonts;
-function buildControls() {
-  syncPresets = chipGroup($('#presets'), PRESETS, 'preset', () => { persist(); requestRender(); });
-  syncFonts = chipGroup($('#fonts'), FONTS, 'font', () => { persist(); requestRender(); }, true);
-  const host = $('#swatches'); host.innerHTML = '';
-  for (const [label, hex] of COLORS) {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'sw'; b.style.background = hex; b.title = label; b.setAttribute('aria-label', label + ' ink'); b.dataset.hex = hex;
-    b.addEventListener('click', () => { S.color = hex; syncSw(); persist(); requestRender(); });
-    host.appendChild(b);
+function clampRect() {
+  const r = crop.r; r.w = clamp(r.w, Math.min(MIN_W, crop.dw), Math.min(crop.dw, crop.dh * AR)); r.h = r.w / AR;
+  r.x = clamp(r.x, 0, crop.dw - r.w); r.y = clamp(r.y, 0, crop.dh - r.h);
+}
+function defaultRect() {
+  const w = Math.min(crop.dw, crop.dh * AR) * 0.9, h = w / AR;
+  crop.r = { x: (crop.dw - w) / 2, y: clamp(crop.dh * 0.42 - h / 2, 0, crop.dh - h), w, h };   // slightly high: faces sit in the upper half
+}
+function layoutCrop(norm) {
+  crop.rc = rotatedCanvas(crop.src, crop.rot);
+  const aw = Math.min(innerWidth - 68, 520), ah = Math.max(200, Math.min(innerHeight * 0.5, 560));
+  crop.fs = Math.min(aw / crop.rc.width, ah / crop.rc.height);
+  crop.dw = Math.round(crop.rc.width * crop.fs); crop.dh = Math.round(crop.rc.height * crop.fs);
+  crop.dpr = Math.min(2, window.devicePixelRatio || 1);
+  cc.width = crop.dw * crop.dpr; cc.height = crop.dh * crop.dpr; cc.style.width = crop.dw + 'px'; cc.style.height = crop.dh + 'px';
+  if (norm) { crop.r = { x: norm.nx * crop.dw, y: norm.ny * crop.dh, w: norm.nw * crop.dw, h: norm.nw * crop.dw / AR }; clampRect(); }
+  else defaultRect();
+  drawCrop();
+}
+function drawCrop() {
+  const x = cctx, d = crop.dpr, r = crop.r, k = r.w / WIN.w;
+  x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, crop.dw, crop.dh);
+  x.imageSmoothingQuality = 'high'; x.drawImage(crop.rc, 0, 0, crop.dw, crop.dh);
+  const path = () => {
+    const rt = WIN.rt * k, rb = WIN.rb * k;
+    x.moveTo(r.x + rt, r.y); x.lineTo(r.x + r.w - rt, r.y); x.arcTo(r.x + r.w, r.y, r.x + r.w, r.y + rt, rt);
+    x.lineTo(r.x + r.w, r.y + r.h - rb); x.arcTo(r.x + r.w, r.y + r.h, r.x + r.w - rb, r.y + r.h, rb);
+    x.lineTo(r.x + rb, r.y + r.h); x.arcTo(r.x, r.y + r.h, r.x, r.y + r.h - rb, rb);
+    x.lineTo(r.x, r.y + rt); x.arcTo(r.x, r.y, r.x + rt, r.y, rt); x.closePath();
+  };
+  x.save(); x.beginPath(); x.rect(0, 0, crop.dw, crop.dh); path(); x.fillStyle = 'rgba(3,8,30,.64)'; x.fill('evenodd'); x.restore();   // dim everything outside the frame shape
+  x.save(); x.beginPath(); path(); x.lineWidth = 2.2; x.strokeStyle = '#f0cf7a'; x.stroke(); x.clip();
+  x.beginPath(); for (let i = 1; i < 3; i++) { x.moveTo(r.x + r.w * i / 3, r.y); x.lineTo(r.x + r.w * i / 3, r.y + r.h); x.moveTo(r.x, r.y + r.h * i / 3); x.lineTo(r.x + r.w, r.y + r.h * i / 3); }
+  x.lineWidth = 1; x.strokeStyle = 'rgba(255,255,255,.35)'; x.stroke(); x.restore();
+  for (const [hx, hy] of [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]]) {
+    x.beginPath(); x.arc(hx, hy, 8, 0, Math.PI * 2); x.fillStyle = '#f0cf7a'; x.fill(); x.lineWidth = 2; x.strokeStyle = '#0a1440'; x.stroke();
   }
 }
-function syncSw() { document.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', b.dataset.hex === S.color)); }
+function cpos(e) { const b = cc.getBoundingClientRect(); return { x: (e.clientX - b.left) * crop.dw / b.width, y: (e.clientY - b.top) * crop.dh / b.height }; }
+function hitCorner(p) {
+  const r = crop.r, cs = [{ n: 'nw', x: r.x, y: r.y }, { n: 'ne', x: r.x + r.w, y: r.y }, { n: 'sw', x: r.x, y: r.y + r.h }, { n: 'se', x: r.x + r.w, y: r.y + r.h }];
+  let best = null, bd = HIT; for (const c of cs) { const d = Math.hypot(p.x - c.x, p.y - c.y); if (d < bd) { bd = d; best = c; } } return best;
+}
+const inside = p => p.x >= crop.r.x && p.x <= crop.r.x + crop.r.w && p.y >= crop.r.y && p.y <= crop.r.y + crop.r.h;
 
-$('#formats').addEventListener('click', e => {
-  const b = e.target.closest('button[data-fmt]'); if (!b) return;
-  S.format = b.dataset.fmt; document.querySelectorAll('#formats button').forEach(x => x.setAttribute('aria-pressed', x === b));
-  $('#hdRow').style.display = S.format === 'poster' ? '' : 'none';
-  persist(); fitStage(); requestRender();
+cc.addEventListener('pointerdown', e => {
+  cc.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; crop.mode = 'pinch'; crop.start = { d: Math.hypot(a.x - b.x, a.y - b.y), w: crop.r.w, cx: crop.r.x + crop.r.w / 2, cy: crop.r.y + crop.r.h / 2 }; return; }
+  const p = cpos(e), c = hitCorner(p);
+  if (c) { const ax = c.n.includes('w') ? crop.r.x + crop.r.w : crop.r.x, ay = c.n.includes('n') ? crop.r.y + crop.r.h : crop.r.y; crop.mode = 'resize'; crop.anchor = { x: ax, y: ay, sx: c.n.includes('w') ? -1 : 1, sy: c.n.includes('n') ? -1 : 1 }; }
+  else if (inside(p)) { crop.mode = 'move'; crop.start = { px: p.x, py: p.y, rx: crop.r.x, ry: crop.r.y }; }
+  else crop.mode = null;
 });
-$('#outSeg').addEventListener('click', e => {
-  const b = e.target.closest('button[data-out]'); if (!b) return;
-  S.out = b.dataset.out; document.querySelectorAll('#outSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); persist();
+cc.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) {                  // hover cursor
+    const p = cpos(e), c = hitCorner(p);
+    cc.style.cursor = c ? (c.n === 'nw' || c.n === 'se' ? 'nwse-resize' : 'nesw-resize') : inside(p) ? 'move' : 'default'; return;
+  }
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const r = crop.r;
+  if (crop.mode === 'pinch' && ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y), s = crop.start;
+    r.w = s.w * d / s.d; r.h = r.w / AR; r.x = s.cx - r.w / 2; r.y = s.cy - r.h / 2; clampRect(); drawCrop(); return;
+  }
+  const p = cpos(e);
+  if (crop.mode === 'move') { r.x = clamp(crop.start.rx + p.x - crop.start.px, 0, crop.dw - r.w); r.y = clamp(crop.start.ry + p.y - crop.start.py, 0, crop.dh - r.h); }
+  else if (crop.mode === 'resize') {
+    const a = crop.anchor, dx = Math.max(0, (p.x - a.x) * a.sx), dy = Math.max(0, (p.y - a.y) * a.sy);
+    const maxW = Math.min(a.sx > 0 ? crop.dw - a.x : a.x, (a.sy > 0 ? crop.dh - a.y : a.y) * AR);
+    const w = clamp(Math.max(dx, dy * AR), Math.min(MIN_W, maxW), maxW), h = w / AR;
+    r.w = w; r.h = h; r.x = a.sx > 0 ? a.x : a.x - w; r.y = a.sy > 0 ? a.y : a.y - h;
+  } else return;
+  drawCrop();
 });
-$('#hd').addEventListener('change', e => { S.hd = e.target.checked; persist(); });
+const endCrop = e => { ptrs.delete(e.pointerId); if (!ptrs.size) crop.mode = null; };
+cc.addEventListener('pointerup', endCrop); cc.addEventListener('pointercancel', endCrop);
+cc.addEventListener('wheel', e => {
+  e.preventDefault(); const r = crop.r, cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  r.w *= Math.exp(-e.deltaY * .0015); r.h = r.w / AR; r.x = cx - r.w / 2; r.y = cy - r.h / 2; clampRect(); drawCrop();
+}, { passive: false });
+cc.addEventListener('keydown', e => {
+  const r = crop.r, st = e.shiftKey ? 20 : 6; let used = true;
+  if (e.key === 'ArrowLeft') r.x -= st; else if (e.key === 'ArrowRight') r.x += st; else if (e.key === 'ArrowUp') r.y -= st; else if (e.key === 'ArrowDown') r.y += st;
+  else if (e.key === '+' || e.key === '=') { const cx = r.x + r.w / 2, cy = r.y + r.h / 2; r.w *= 0.94; r.h = r.w / AR; r.x = cx - r.w / 2; r.y = cy - r.h / 2; }
+  else if (e.key === '-') { const cx = r.x + r.w / 2, cy = r.y + r.h / 2; r.w *= 1.06; r.h = r.w / AR; r.x = cx - r.w / 2; r.y = cy - r.h / 2; }
+  else if (e.key === 'Enter') { e.preventDefault(); applyCrop(); return; } else used = false;
+  if (used) { e.preventDefault(); clampRect(); drawCrop(); }
+});
 
-function persist() { store.set({ name: S.name, font: S.font, color: S.color, autoCap: S.autoCap, preset: S.preset, out: S.out, hd: S.hd, format: S.format, bright: S.bright }); }
+function openCrop(newSrc) {
+  crop.src = newSrc || S.orig; if (!crop.src) return;
+  crop.isNew = !!newSrc; crop.rot = (!crop.isNew && S.crop) ? S.crop.rot : 0;
+  layoutCrop(!crop.isNew && S.crop ? S.crop : null);
+  crop.open = true; cropOv.classList.add('open'); document.body.style.overflow = 'hidden';
+  clearTimeout(toastT); $('#toast').classList.remove('show');
+  cc.focus({ preventScroll: true });
+}
+function closeCrop() { crop.open = false; cropOv.classList.remove('open'); document.body.style.overflow = ''; ptrs.clear(); crop.mode = null; }
+function applyCrop() {
+  const r = crop.r, fs = crop.fs, sw = r.w / fs, sh = r.h / fs, sx = r.x / fs, sy = r.y / fs;
+  const ow = clamp(Math.round(sw), 368, 1104), oh = Math.round(ow / AR);
+  const out = document.createElement('canvas'); out.width = ow; out.height = oh;
+  const x = out.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(crop.rc, sx, sy, sw, sh, 0, 0, ow, oh);
+  S.photo = out; S.orig = crop.src; S.crop = { rot: crop.rot, nx: r.x / crop.dw, ny: r.y / crop.dh, nw: r.w / crop.dw };
+  const wasNew = crop.isNew; closeCrop(); requestRender();
+  toast(wasNew ? 'Looking good! Now tap the name plate to type your name ✏️' : 'Photo updated ✓', 3200);
+}
+$('#cropApply').addEventListener('click', applyCrop);
+$('#cropCancel').addEventListener('click', closeCrop);
+$('#cropRot').addEventListener('click', () => { crop.rot = (crop.rot + 1) % 4; layoutCrop(null); });
+cropOv.addEventListener('click', e => { if (e.target === cropOv) closeCrop(); });
+addEventListener('resize', () => {
+  if (!crop.open) return; const r = crop.r, n = { nx: r.x / crop.dw, ny: r.y / crop.dh, nw: r.w / crop.dw }; layoutCrop(n);
+});
 
 /* ════════════════ CAPTION ════════════════ */
 const cap = $('#caption'); let capEdited = false;
@@ -805,32 +756,28 @@ function defaultCaption() {
 function updateCaption() { if (!capEdited) cap.value = defaultCaption(); }
 cap.addEventListener('input', () => { capEdited = true; });
 async function copyCaption() {
-  try { await navigator.clipboard.writeText(cap.value); }
-  catch { cap.select(); try { document.execCommand('copy'); } catch {} }
+  try { await navigator.clipboard.writeText(cap.value); } catch { cap.select(); try { document.execCommand('copy'); } catch {} }
   toast('Caption copied ✓');
 }
 $('#copyBtn').addEventListener('click', copyCaption); $('#mCopy').addEventListener('click', copyCaption);
 
 /* ════════════════ EXPORT ════════════════ */
 function validate() {
-  if (!S.src) { toast('Add your photo first 📸'); pulse($('#cardPhoto')); return false; }
-  if (displayName().length < 2) { toast('Type your name for the name plate ✏️'); pulse($('#cardName')); nameInput.focus({ preventScroll: true }); return false; }
+  if (!S.photo) { toast('Add your photo first 📸'); pulse($('#cardPhoto')); return false; }
+  if (displayName().length < 2) { toast('Tap the name plate and type your name ✏️'); pulse($('#cardName')); nameInput.focus({ preventScroll: true }); return false; }
   return true;
 }
-function slug(s) { return s.normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_').slice(0, 40) || 'Frame'; }
-function makeBlob() {
-  const c = document.createElement('canvas'); render(c.getContext('2d'), 'export');
-  const type = S.out === 'png' ? 'image/png' : 'image/jpeg';
-  return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), type, .93));
+const slug = s => s.normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_').slice(0, 40) || 'Frame';
+function makeBlob(fmt) {
+  const c = document.createElement('canvas'); render(c.getContext('2d'), 'export', fmt);
+  return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/jpeg', .94));
 }
-let current = null; // { blob, url, name }
-async function generate() {
+let current = null;
+async function generate(fmt = 'poster') {
   if (!validate()) return null;
   if (current) URL.revokeObjectURL(current.url);
-  const blob = await makeBlob();
-  const ext = S.out === 'png' ? 'png' : 'jpg';
-  const suffix = S.format === 'poster' ? '' : '_' + S.format;
-  current = { blob, url: URL.createObjectURL(blob), name: `Vishwasetu_${slug(displayName())}${suffix}.${ext}` };
+  const blob = await makeBlob(fmt);
+  current = { blob, url: URL.createObjectURL(blob), name: `Vishwasetu_${slug(displayName())}${fmt === 'poster' ? '' : '_' + fmt}.jpg` };
   return current;
 }
 function saveFile(f) { const a = document.createElement('a'); a.href = f.url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); }
@@ -839,34 +786,34 @@ function openModal(f) {
   clearTimeout(toastT); $('#toast').classList.remove('show');
   $('#overlay').classList.add('open'); $('#mClose').focus();
 }
-async function onDownload(btn) {
-  const labels = [$('#dlBtn'), $('#dlBar')]; labels.forEach(b => { b.disabled = true; b.textContent = '⏳ Creating your frame…'; });
+let busy = false;
+async function onDownload(fmt) {
+  if (busy) return; busy = true;
+  const btns = [$('#dlBtn'), $('#dlBar')]; btns.forEach(b => { b.disabled = true; b.textContent = '⏳ Creating your frame…'; });
   try {
     await new Promise(r => setTimeout(r, 30));
-    const f = await generate(); if (!f) return;
+    const f = await generate(fmt); if (!f) return;
     saveFile(f); openModal(f); confetti();
   } catch (e) { console.error(e); toast('Something went wrong — please try again.'); }
-  finally { labels.forEach(b => { b.disabled = false; b.textContent = '⬇️ Download my frame'; }); }
+  finally { busy = false; btns.forEach(b => { b.disabled = false; b.textContent = '⬇️ Download my frame'; }); }
 }
-$('#dlBtn').addEventListener('click', onDownload); $('#dlBar').addEventListener('click', onDownload);
+$('#dlBtn').addEventListener('click', () => onDownload('poster')); $('#dlBar').addEventListener('click', () => onDownload('poster'));
+$('#dlStory').addEventListener('click', () => onDownload('story')); $('#dlFeed').addEventListener('click', () => onDownload('feed'));
 $('#mClose').addEventListener('click', () => $('#overlay').classList.remove('open'));
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay') $('#overlay').classList.remove('open'); });
-addEventListener('keydown', e => { if (e.key === 'Escape') $('#overlay').classList.remove('open'); });
+addEventListener('keydown', e => { if (e.key === 'Escape') { $('#overlay').classList.remove('open'); if (crop.open) closeCrop(); } });
 
 async function share(useCurrent) {
   try {
-    const f = useCurrent && current ? current : await generate(); if (!f) return;
+    const f = useCurrent && current ? current : await generate('poster'); if (!f) return;
     const file = new File([f.blob], f.name, { type: f.blob.type });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], text: cap.value, title: 'I’m attending Vishwasetu 2026' });
-    } else {
-      saveFile(f); await copyCaption(); openModal(f); toast('Saved the image & copied the caption — post it anywhere!', 4200);
-    }
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], text: cap.value, title: 'I’m attending Vishwasetu 2026' });
+    else { saveFile(f); await copyCaption(); openModal(f); toast('Saved the image & copied the caption — post it anywhere!', 4200); }
   } catch (e) { if (e && e.name !== 'AbortError') toast('Sharing isn’t available here — use Download instead.'); }
 }
 $('#shareBtn').addEventListener('click', () => share(false)); $('#mShare').addEventListener('click', () => share(true));
 
-/* ════════════════ CONFETTI ════════════════ */
+/* ════════════════ CONFETTI + COUNTDOWN ════════════════ */
 function confetti() {
   if (reduceMotion) return;
   const c = $('#confetti'), x = c.getContext('2d'); c.width = innerWidth; c.height = innerHeight;
@@ -879,42 +826,58 @@ function confetti() {
     if (t - t0 < 2800) requestAnimationFrame(f); else x.clearRect(0, 0, c.width, c.height);
   })(t0);
 }
-
-/* ════════════════ COUNTDOWN ════════════════ */
 function tickCountdown() {
   const el = $('#countdown'), now = Date.now(), a = Date.parse(CONFIG.eventStart), b = Date.parse(CONFIG.eventEnd);
-  let t;
-  if (now < a) { const d = Math.ceil((a - now) / 864e5); t = d === 1 ? '⏳ Starts tomorrow!' : `⏳ ${d} days to go`; }
-  else if (now <= b) t = '🎉 Happening now!';
-  else t = '💛 Thank you for being part of it';
-  el.textContent = t;
+  if (now < a) { const d = Math.ceil((a - now) / 864e5); el.textContent = d === 1 ? '⏳ Starts tomorrow!' : `⏳ ${d} days to go`; }
+  else if (now <= b) el.textContent = '🎉 Happening now!';
+  else el.textContent = '💛 Thank you for being part of it';
 }
 
+/* ════════════════ GOLD GLITTER (page background only) ════════════════ */
+(function glitter() {
+  const cv = $('#glitter'), g = cv.getContext('2d');
+  const cols = ['#f0cf7a', '#fff3cf', '#e0b447', '#ffe9a8', '#c99a2e'];
+  let W = 0, H = 0, dpr = 1, ps = [];
+  function seed() {
+    dpr = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const n = Math.round(clamp(W * H / 6500, 70, 210));
+    ps = Array.from({ length: n }, () => ({
+      x: Math.random() * W, y: Math.random() * H, r: .5 + Math.random() * 1.9, ph: Math.random() * 6.28, sp: .5 + Math.random() * 2.2,
+      vy: -(.02 + Math.random() * .12), vx: (Math.random() - .5) * .06, c: cols[Math.random() * cols.length | 0], star: Math.random() < .08,
+    }));
+  }
+  function draw(t, still) {
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    for (const p of ps) {
+      if (!still) { p.y += p.vy; p.x += p.vx; if (p.y < -8) p.y = H + 8; if (p.x < -8) p.x = W + 8; else if (p.x > W + 8) p.x = -8; }
+      const tw = still ? .7 : Math.pow(Math.max(0, Math.sin(t / 1000 * p.sp + p.ph)), 3), a = .14 + .86 * tw;
+      g.globalAlpha = a; g.fillStyle = p.c;
+      if (p.star) {                                   // a few larger 4-point sparkles with a soft glow
+        const r = p.r * 3.4 * (.5 + tw * .5);
+        g.save(); g.translate(p.x, p.y); g.shadowColor = '#f0cf7a'; g.shadowBlur = 10;
+        g.beginPath(); g.moveTo(0, -r * 2); g.quadraticCurveTo(0, 0, r * 2, 0); g.quadraticCurveTo(0, 0, 0, r * 2); g.quadraticCurveTo(0, 0, -r * 2, 0); g.quadraticCurveTo(0, 0, 0, -r * 2); g.fill(); g.restore();
+      } else { g.beginPath(); g.arc(p.x, p.y, p.r * (.7 + tw * .5), 0, 6.2832); g.fill(); }
+    }
+    g.globalAlpha = 1;
+  }
+  seed();
+  if (reduceMotion) { draw(0, true); addEventListener('resize', () => { seed(); draw(0, true); }); return; }
+  addEventListener('resize', seed);
+  (function loop(t) { draw(t, false); requestAnimationFrame(loop); })(performance.now());
+})();
+
 /* ════════════════ INIT ════════════════ */
+function persist() { store.set({ name: S.name }); }
 function init() {
   const saved = store.get();
   if (typeof saved.name === 'string') { S.name = saved.name.slice(0, 36); nameInput.value = S.name; }
-  if (FONTS[saved.font]) S.font = saved.font;
-  if (COLORS.some(c => c[1] === saved.color)) S.color = saved.color;
-  if (typeof saved.autoCap === 'boolean') S.autoCap = saved.autoCap;
-  if (PRESETS[saved.preset]) S.preset = saved.preset;
-  if (saved.out === 'png' || saved.out === 'jpg') S.out = saved.out;
-  if (typeof saved.hd === 'boolean') S.hd = saved.hd;
-  if (FORMATS[saved.format]) S.format = saved.format;
-  if (typeof saved.bright === 'number') S.bright = clamp(saved.bright, -50, 50);
-
-  $('#autoCap').checked = S.autoCap; $('#hd').checked = S.hd; $('#bright').value = S.bright;
-  document.querySelectorAll('#outSeg button').forEach(x => x.setAttribute('aria-pressed', x.dataset.out === S.out));
-  document.querySelectorAll('#formats button').forEach(x => x.setAttribute('aria-pressed', x.dataset.fmt === S.format));
-  $('#hdRow').style.display = S.format === 'poster' ? '' : 'none';
-  buildControls(); syncSw();
   $('#regBtn').href = CONFIG.registerUrl; $('#credit').textContent = CONFIG.credit;
   updateCaption(); tickCountdown(); setInterval(tickCountdown, 60000);
   fitStage(); addEventListener('resize', () => { fitStage(); requestRender(); });
   requestAnimationFrame(frame);
 }
-const go = () => init();
-if (posterImg.complete && posterImg.naturalWidth) go(); else posterImg.addEventListener('load', go, { once: true });
+if (posterImg.complete && posterImg.naturalWidth) init(); else posterImg.addEventListener('load', init, { once: true });
 })();
 </script>
 </body>
