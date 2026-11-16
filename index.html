@@ -226,6 +226,11 @@ html.locked #gate{display:grid}
 .bar{height:8px;border-radius:99px;background:rgba(240,207,122,.2);overflow:hidden;margin-top:8px}
 .bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#f6dc8e,#c99a2e);transition:width .25s}
 #gateResult{margin-top:16px;text-align:left;font-size:.92rem}
+.gate-reg{margin-top:18px;padding-top:16px;border-top:1px solid rgba(240,207,122,.22)}
+.gate-reg p{font-size:.9rem;color:var(--mut);margin-bottom:10px}
+.gate-reg p b{color:var(--ink)}
+.gate-reg .btn{width:100%}
+.gate-reg .gate-lost{margin:10px 0 0;font-size:.8rem}
 .gate-ok{text-align:center}
 .gate-ok .big{font-size:2.6rem;line-height:1.2}
 .gate-ok p{color:var(--mut);margin:4px 0 12px}
@@ -262,6 +267,11 @@ html.locked #gate{display:grid}
     <input type="file" id="gateFile" accept=".pdf,.html,.htm,application/pdf,text/html,image/*" hidden>
     <div id="gateStatus" aria-live="polite" hidden><span class="spin" aria-hidden="true"></span><span id="gateMsg">Reading your receipt…</span><div class="bar"><i id="gateBar"></i></div></div>
     <div id="gateResult" aria-live="polite" hidden></div>
+    <div class="gate-reg">
+      <p><b>Not registered yet?</b> Register on the official WIRC page first, then come back and upload your receipt.</p>
+      <a class="btn ghost" id="gateReg" target="_blank" rel="noopener noreferrer">📝 Register for the conference</a>
+      <p class="gate-lost">Registered but can’t find your receipt? Check your registration email, or log in at <b>bosactivities.icai.org</b>.</p>
+    </div>
     <p class="gate-priv">🔒 Your receipt is read on your device and is <b>never uploaded or saved</b>. We only remember that you were verified.</p>
     <details class="gate-help">
       <summary>What should the receipt show?</summary>
@@ -1112,6 +1122,8 @@ async function gateHandle(file) {
   } finally { gate.busy = false; $('#gateStatus').hidden = true; }
 }
 function initGate() {
+  $('#gateReg').href = CONFIG.registerUrl;
+  if (CONFIG.gate) $('#cardReg')?.remove();          // the gate only lets registered students in, so don't offer them registration again
   if (!CONFIG.gate || gateUnlocked()) { document.documentElement.classList.remove('locked'); return; }
   $('#gateFile').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; gateHandle(f); });
   $('#gateDrop').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#gateFile').click(); } });
@@ -1157,7 +1169,7 @@ function persist() { store.set({ name: S.name }); }
 function init() {
   const saved = store.get();
   if (typeof saved.name === 'string') { S.name = saved.name.slice(0, 36); nameInput.value = S.name; }
-  $('#regBtn').href = CONFIG.registerUrl; $('#credit').textContent = CONFIG.credit;
+  if ($('#regBtn')) $('#regBtn').href = CONFIG.registerUrl; $('#credit').textContent = CONFIG.credit;
   setupCollect(); updateCaption(); tickCountdown(); setInterval(tickCountdown, 60000);
   fitStage(); addEventListener('resize', () => { fitStage(); requestRender(); });
   requestAnimationFrame(frame);
