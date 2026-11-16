@@ -9,6 +9,18 @@
 <meta property="og:title" content="I’m attending Vishwasetu — CA Students International Conference 2026">
 <meta property="og:description" content="Make your personalised attending frame in 20 seconds. 5–6 Dec 2026, Jio World Convention Centre, BKC, Mumbai.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://international-conference-sm.vercel.app/">
+<meta property="og:site_name" content="Vishwasetu · CA Students International Conference 2026">
+<meta property="og:image" content="https://international-conference-sm.vercel.app/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Vishwasetu logo over the Mumbai skyline: I'm attending the International Conference of CA Students 2026">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="I’m attending Vishwasetu — CA Students International Conference 2026">
+<meta name="twitter:description" content="Make your personalised attending frame in 20 seconds. 5–6 Dec 2026, Jio World Convention Centre, BKC, Mumbai.">
+<meta name="twitter:image" content="https://international-conference-sm.vercel.app/og.jpg">
+<link rel="canonical" href="https://international-conference-sm.vercel.app/">
+
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌉%3C/text%3E%3C/svg%3E">
 <style>
 :root{
@@ -246,6 +258,9 @@ html.locked #gate{display:grid}
 .gate-help ul{margin:6px 0 0 18px}
 .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(240,207,122,.35);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;vertical-align:-3px;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
+.plan-line{font-size:.92rem;color:var(--ink);margin-bottom:12px;line-height:1.5}
+.plan-alt{font-size:.78rem;color:var(--mut);margin-top:10px}
+.plan .row .btn{flex:1 1 150px}
 #glitter{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
 .wrap{z-index:1}
 
@@ -389,16 +404,26 @@ h1.logo{display:block;margin:2px auto 0;padding:0;font-size:0;line-height:0;back
         </div>
         <details>
           <summary>More sizes &amp; caption</summary>
-          <label class="lbl">Instagram / LinkedIn sizes</label>
+          <label class="lbl">Instagram &amp; LinkedIn sizes</label>
           <div class="row">
             <button class="btn ghost" type="button" id="dlStory">Story 9:16</button>
             <button class="btn ghost" type="button" id="dlFeed">Feed 4:5</button>
+            <button class="btn ghost" type="button" id="dlLinkedin">LinkedIn 1200×627</button>
           </div>
           <label class="lbl" for="caption">Caption <span style="opacity:.7">(edit if you like)</span></label>
           <textarea id="caption"></textarea>
         </details>
       </div>
 
+      <div class="card plan" id="cardPlan">
+        <h2>📍 Plan your visit</h2>
+        <p class="plan-line"><b>5–6 December 2026</b> · Day 1 starts 9:30 AM<br>Jio World Convention Centre, Bandra Kurla Complex, Mumbai</p>
+        <div class="row">
+          <button class="btn ghost" type="button" id="calBtn">📅 Add to calendar</button>
+          <a class="btn ghost" id="mapBtn" target="_blank" rel="noopener noreferrer">🗺️ Open in Maps</a>
+        </div>
+        <p class="plan-alt"><a class="link" id="gcalBtn" target="_blank" rel="noopener noreferrer">Use Google Calendar instead</a> · Carry your photo ID card and registration acknowledgement.</p>
+      </div>
       <div class="card reg" id="cardReg">
         <p>Not registered yet? Register through the official WIRC event page (same as the QR code on the poster).</p>
         <a class="btn ghost" id="regBtn" target="_blank" rel="noopener noreferrer">📝 Register</a>
@@ -463,6 +488,13 @@ const CONFIG = {
   collectUrl  : '',     // paste your Google Apps Script "Web app" URL here to receive names + photos
   collectToken: '',     // optional shared word; must match TOKEN in the Apps Script
   consentRequired: true, // true: students must tick the box to download · false: ticking is optional
+  // ── Plan your visit ──
+  eventTitle  : 'International Conference of CA Students 2026 – Vishwasetu',
+  venueName   : 'Jio World Convention Centre',
+  venueAddress: 'Jio World Convention Centre, Bandra Kurla Complex, Mumbai, Maharashtra 400051, India',
+  calStart    : '2026-12-05',      // first day (all-day entry)
+  calEnd      : '2026-12-06',      // last day
+  calNote     : 'Day 1 starts 9:30 AM. Carry your photo ID card and registration acknowledgement. Hosted by WICASA of WIRC, ICAI.',
   // ── Registration gate ──
   gate        : true,   // true: students must upload a valid registration receipt first
   gateDays    : 30,     // how long this device stays unlocked
@@ -476,7 +508,7 @@ const PLATE_TOP = 845.5;                                           // where the 
 const AR    = WIN.w / WIN.h;
 const NAME_COLOR = '#14284b';
 const FONT  = s => `700 ${s}px Georgia, "Times New Roman", "Noto Serif", serif`;
-const FORMATS = { poster: {}, story: { w: 1080, h: 1920 }, feed: { w: 1080, h: 1350 } };
+const FORMATS = { poster: {}, story: { w: 1080, h: 1920 }, feed: { w: 1080, h: 1350 }, linkedin: { w: 1200, h: 627 } };
 
 /* ════════════════ STATE ════════════════ */
 const S = { orig: null, photo: null, crop: null, photoVer: 0, name: '', editing: false };
@@ -585,6 +617,7 @@ function drawName(ctx, mode) {
 
 let lastLayout = null;
 function render(ctx, mode, fmt = 'poster') {
+  if (fmt === 'linkedin') return renderBanner(ctx);
   const L = layout(fmt, mode), cv = ctx.canvas;
   if (cv.width !== L.cw || cv.height !== L.ch) { cv.width = L.cw; cv.height = L.ch; }
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, L.cw, L.ch);
@@ -899,6 +932,68 @@ function validate() {
   return true;
 }
 const slug = s => s.normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_').slice(0, 40) || 'Frame';
+/* ════════════════ LINKEDIN BANNER (1200 × 627) ════════════════ */
+let plateSprite = null;
+function getPlateSprite() {                      // the gold name plate cut out of the poster (cream paper removed), cached
+  if (plateSprite) return plateSprite;
+  const ks = posterImg.naturalWidth / P.W, X0 = 100, Y0 = PLATE_TOP, WW = 600, HH = 90, D = 2, w = WW * D, h = HH * D;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingQuality = 'high';
+  x.drawImage(posterImg, X0 * ks, Y0 * ks, WW * ks, HH * ks, 0, 0, w, h);
+  const im = x.getImageData(0, 0, w, h), d = im.data, out = new Uint8Array(w * h), q = [];
+  const isBg = i => { const r = d[i], g = d[i + 1], b = d[i + 2]; return Math.max(r, g, b) - Math.min(r, g, b) < 58 && (r + g + b) / 3 > 195; };
+  const push = p => { if (!out[p] && isBg(p * 4)) { out[p] = 1; q.push(p); } };
+  for (let i = 0; i < w; i++) { push(i); push((h - 1) * w + i); } for (let j = 0; j < h; j++) { push(j * w); push(j * w + w - 1); }
+  while (q.length) { const p = q.pop(), px = p % w, py = (p / w) | 0; if (px > 0) push(p - 1); if (px < w - 1) push(p + 1); if (py > 0) push(p - w); if (py < h - 1) push(p + w); }
+  for (let p = 0; p < w * h; p++) {
+    if (out[p]) { d[p * 4 + 3] = 0; continue; }
+    const px = p % w, py = (p / w) | 0, edge = (px > 0 && out[p - 1]) || (px < w - 1 && out[p + 1]) || (py > 0 && out[p - w]) || (py < h - 1 && out[p + w]);
+    if (edge) { const r = d[p * 4], g = d[p * 4 + 1], b = d[p * 4 + 2]; d[p * 4 + 3] = Math.round(255 * clamp((Math.max(r, g, b) - Math.min(r, g, b) - 30) / 40, .3, 1)); }
+  }
+  x.putImageData(im, 0, 0); return plateSprite = { c, X0, Y0, WW, HH };
+}
+function fitFont(ctx, txt, weight, size, maxW, family = '"Segoe UI", Inter, system-ui, -apple-system, Roboto, Arial, sans-serif') {
+  let s = size; do { ctx.font = `${weight} ${s}px ${family}`; if (ctx.measureText(txt).width <= maxW) break; s -= 1; } while (s > 10); return s;
+}
+function renderBanner(ctx) {
+  const W = 1200, H = 627, cv = ctx.canvas; cv.width = W; cv.height = H;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  let g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#07153b'); g.addColorStop(.55, '#0c2663'); g.addColorStop(1, '#050c31'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  g = ctx.createRadialGradient(W * .84, H * .12, 0, W * .84, H * .12, 460); g.addColorStop(0, 'rgba(240,170,60,.30)'); g.addColorStop(1, 'rgba(240,170,60,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  g = ctx.createRadialGradient(W * .06, H * .95, 0, W * .06, H * .95, 480); g.addColorStop(0, 'rgba(80,130,255,.30)'); g.addColorStop(1, 'rgba(80,130,255,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;          // gold dust
+  for (let i = 0; i < 90; i++) { const x = rnd() * W, y = rnd() * H, r = .6 + rnd() * 1.7; ctx.fillStyle = `rgba(${rnd() > .5 ? '240,207,122' : '255,243,207'},${.25 + rnd() * .55})`; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+  // framed photo + name plate, cut from the finished poster
+  const pc = document.createElement('canvas'); render(pc.getContext('2d'), 'export', 'poster');
+  const m = 1.02, FT = 392, FB = 852, FL = 233, FR = 565.5, top = 38, cx = 300;
+  const tx = cx - ((FL + FR) / 2) * m, ty = top - FT * m;
+  ctx.save(); ctx.translate(tx, ty); ctx.scale(m, m);
+  const frame = () => rrect(ctx, FL, FT + 2.5, FR - FL, FB - FT, 40);
+  ctx.save(); frame(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 34; ctx.shadowOffsetY = 12; ctx.fillStyle = '#000'; ctx.fill(); ctx.restore();
+  ctx.save(); frame(); ctx.clip(); ctx.drawImage(pc, 0, 0, pc.width, pc.height, 0, 0, P.W, P.H); ctx.restore();
+  const sp = getPlateSprite();
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 6; ctx.drawImage(sp.c, sp.X0, sp.Y0, sp.WW, sp.HH); ctx.restore();
+  drawName(ctx, 'export');
+  ctx.restore();
+  // right side: logo + message
+  const R = 905, logo = $('#siteLogo'), lw = 370, lh = lw * (logo.naturalHeight / logo.naturalWidth), lx = R - lw / 2, ly = 40;
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8; rrect(ctx, lx, ly, lw, lh, 22); ctx.fillStyle = '#fbf0da'; ctx.fill(); ctx.restore();
+  ctx.save(); rrect(ctx, lx, ly, lw, lh, 22); ctx.clip(); ctx.drawImage(logo, lx, ly, lw, lh); ctx.restore();
+  ctx.save(); rrect(ctx, lx - 1, ly - 1, lw + 2, lh + 2, 23); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; const maxW = 520;
+  const line = (txt, y, wt, size, fill, shadow = true) => { const sz = fitFont(ctx, txt, wt, size, maxW); ctx.font = `${wt} ${sz}px "Segoe UI", Inter, system-ui, -apple-system, Roboto, Arial, sans-serif`;
+    if (shadow) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(txt, R + 2, y + 3); } ctx.fillStyle = fill; ctx.fillText(txt, R, y); };
+  let y = ly + lh + 70;
+  line('I AM ATTENDING', y, 800, 50, '#fff3cf'); y += 78;
+  const gg = ctx.createLinearGradient(0, y - 64, 0, y + 6); gg.addColorStop(0, '#fff3cf'); gg.addColorStop(.5, '#f0cf7a'); gg.addColorStop(1, '#c99a2e');
+  line('ARE YOU?', y, 900, 78, gg); y += 30;
+  ctx.fillStyle = 'rgba(240,207,122,.8)'; ctx.fillRect(R - 70, y, 140, 3); y += 42;
+  line('5–6 DECEMBER 2026', y, 700, 26, '#f7ead2', false); y += 34;
+  line('JIO WORLD CONVENTION CENTRE · BKC, MUMBAI', y, 600, 19, '#c9b79a', false);
+  if (location.host) { y += 40; line(location.host, y, 600, 17, 'rgba(240,207,122,.9)', false); }
+  return { cw: W, ch: H };
+}
+
 function makeBlob(fmt) {
   const c = document.createElement('canvas'); render(c.getContext('2d'), 'export', fmt);
   return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/jpeg', .94));
@@ -952,7 +1047,7 @@ async function onDownload(fmt) {
   finally { busy = false; btns.forEach(b => { b.disabled = false; b.textContent = '⬇️ Download my frame'; }); }
 }
 $('#dlBtn').addEventListener('click', () => onDownload('poster')); $('#dlBar').addEventListener('click', () => onDownload('poster'));
-$('#dlStory').addEventListener('click', () => onDownload('story')); $('#dlFeed').addEventListener('click', () => onDownload('feed'));
+$('#dlStory').addEventListener('click', () => onDownload('story')); $('#dlFeed').addEventListener('click', () => onDownload('feed')); $('#dlLinkedin').addEventListener('click', () => onDownload('linkedin'));
 $('#mClose').addEventListener('click', () => $('#overlay').classList.remove('open'));
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay') $('#overlay').classList.remove('open'); });
 addEventListener('keydown', e => { if (e.key === 'Escape') { $('#overlay').classList.remove('open'); if (crop.open) closeCrop(); } });
@@ -986,6 +1081,34 @@ function tickCountdown() {
   else if (now <= b) el.textContent = '🎉 Happening now!';
   else el.textContent = '💛 Thank you for being part of it';
 }
+
+/* ════════════════ PLAN YOUR VISIT (calendar + map) ════════════════ */
+const ymd = d => d.replace(/-/g, '');
+const ymdNext = d => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10).replace(/-/g, ''); };
+const icsEsc = v => String(v).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
+const icsFold = l => { const o = []; while (l.length > 74) { o.push(l.slice(0, 74)); l = ' ' + l.slice(74); } o.push(l); return o.join('\r\n'); };
+function buildIcs() {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Vishwasetu Frame//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
+    'UID:vishwasetu-2026-' + ymd(CONFIG.calStart) + '@vishwasetu-frame', 'DTSTAMP:' + stamp,
+    'DTSTART;VALUE=DATE:' + ymd(CONFIG.calStart), 'DTEND;VALUE=DATE:' + ymdNext(CONFIG.calEnd),
+    'SUMMARY:' + icsEsc(CONFIG.eventTitle), 'LOCATION:' + icsEsc(CONFIG.venueAddress), 'DESCRIPTION:' + icsEsc(CONFIG.calNote),
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc('Tomorrow: ' + CONFIG.eventTitle), 'TRIGGER:-PT15H', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'];
+  return L.map(icsFold).join('\r\n') + '\r\n';
+}
+function downloadIcs() {
+  const blob = new Blob([buildIcs()], { type: 'text/calendar;charset=utf-8' }), url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'Vishwasetu-2026.ics'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000); toast('Calendar file ready — open it to save the dates 📅', 3200);
+}
+function initPlan() {
+  $('#calBtn').addEventListener('click', downloadIcs);
+  $('#mapBtn').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(CONFIG.venueAddress);
+  $('#gcalBtn').href = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(CONFIG.eventTitle) +
+    '&dates=' + ymd(CONFIG.calStart) + '/' + ymdNext(CONFIG.calEnd) + '&details=' + encodeURIComponent(CONFIG.calNote) +
+    '&location=' + encodeURIComponent(CONFIG.venueAddress) + '&ctz=Asia/Kolkata';
+}
+window.__vsfIcs = buildIcs;
 
 /* ════════════════ REGISTRATION GATE ════════════════ */
 /* Everything here runs on the student's device. The receipt is read, checked and discarded — never uploaded.
@@ -1217,6 +1340,7 @@ function init() {
   fitStage(); addEventListener('resize', () => { fitStage(); requestRender(); });
   requestAnimationFrame(frame);
 }
+initPlan();
 initGate();
 if (posterImg.complete && posterImg.naturalWidth) init(); else posterImg.addEventListener('load', init, { once: true });
 })();
