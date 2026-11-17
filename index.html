@@ -311,6 +311,16 @@ h1.logo{display:block;margin:2px auto 0;padding:0;font-size:0;line-height:0;back
 @keyframes rbspin{to{--rb:360deg}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.card,.gate-card,.logo-frame,.pill:not(.count){background:rgba(16,36,96,.88)}}
 @media(max-width:600px){.card,.gate-card,.logo-frame,.pill:not(.count){-webkit-backdrop-filter:blur(4px) saturate(125%);backdrop-filter:blur(4px) saturate(125%)}.logo-frame{padding:9px 10px;border-radius:24px}.logo-frame img{width:min(72vw,300px)}}
+/* phones & touch screens: same look, far cheaper to draw (no live blur, no animated borders, no fixed background) */
+@media(pointer:coarse),(max-width:700px){
+  body{background-attachment:scroll}
+  .card,.gate-card,.logo-frame,.pill:not(.count),.pill.count,.seg{-webkit-backdrop-filter:none;backdrop-filter:none}
+  .card,.logo-frame,.pill:not(.count){background:linear-gradient(135deg,rgba(255,255,255,.17),rgba(255,255,255,.06) 55%,rgba(255,255,255,.10)),rgba(10,26,84,.66)}
+  .gate-card{background:linear-gradient(135deg,rgba(255,255,255,.15),rgba(255,255,255,.04) 50%,rgba(255,255,255,.09)),rgba(8,18,60,.86)}
+  .card::before,.gate-card::before{display:none}
+  .card::after,.gate-card::after,.logo-frame::after,.pill:not(.count)::after{animation:none}
+  .logo-frame img{filter:none}
+}
 </style>
 <script>try{var v=JSON.parse(localStorage.getItem('vsf-gate-v1')||'null');if(!v||!(v.exp>Date.now()))document.documentElement.classList.add('locked')}catch(e){document.documentElement.classList.add('locked')}</script>
 </head>
@@ -741,19 +751,20 @@ function frame() {
   requestAnimationFrame(frame);
 }
 const stars = Array.from({ length: 34 }, () => ({ u: Math.random(), v: Math.random(), r: 2 + Math.random() * 4.5, ph: Math.random() * 6.28, sp: .6 + Math.random() * 1.4 }));
-const sctx = $('#sparkles').getContext('2d');
+const sctx = $('#sparkles').getContext('2d'), starList = isCoarse ? stars.slice(0, 14) : stars; let lastSp = 0;
 function drawSparkles() {
   const sp = $('#sparkles'); if (!lastLayout) return;
+  if (isCoarse) { const now = performance.now(); if (now - lastSp < 50) return; lastSp = now; }
   if (reduceMotion) { if (!sp._once) sp._once = 1; else return; }
   sctx.clearRect(0, 0, sp.width, sp.height);
   const t = performance.now() / 1000, L = lastLayout;
-  for (const st of stars) {
+  for (const st of starList) {
     const px = st.u * sp.width, py = st.v * sp.height, ux = (px - L.ox) / L.s, uy = (py - L.oy) / L.s;
     if (ux > WIN.x - 12 && ux < WIN.x + WIN.w + 12 && uy > WIN.y - 12 && uy < WIN.y + WIN.h + 12) continue;
     if (FR.keep.some(k => ux > k[0] && ux < k[2] && uy > k[1] && uy < k[3])) continue;
     const a = Math.max(0, Math.sin(t * st.sp + st.ph)); if (a < .05) continue;
     const r = st.r * (sp.width / 794) * a;
-    sctx.save(); sctx.translate(px, py); sctx.globalAlpha = a * .9; sctx.fillStyle = '#fff3cf'; sctx.shadowColor = '#f0cf7a'; sctx.shadowBlur = 8;
+    sctx.save(); sctx.translate(px, py); sctx.globalAlpha = a * .9; sctx.fillStyle = '#fff3cf'; if (!isCoarse) { sctx.shadowColor = '#f0cf7a'; sctx.shadowBlur = 8; }
     sctx.beginPath(); sctx.moveTo(0, -r * 2); sctx.quadraticCurveTo(0, 0, r * 2, 0); sctx.quadraticCurveTo(0, 0, 0, r * 2); sctx.quadraticCurveTo(0, 0, -r * 2, 0); sctx.quadraticCurveTo(0, 0, 0, -r * 2); sctx.fill();
     sctx.restore();
   }
@@ -1332,11 +1343,12 @@ window.__vsfGate = { evaluate: evaluateText };   // exposed for testing the matc
 (function glitter() {
   const cv = $('#glitter'), g = cv.getContext('2d');
   const cols = ['#f0cf7a', '#fff3cf', '#e0b447', '#ffe9a8', '#c99a2e'];
-  let W = 0, H = 0, dpr = 1, ps = [];
+  const lite = isCoarse || innerWidth < 700;
+  let W = 0, H = 0, dpr = 1, ps = [], lastT = 0;
   function seed() {
-    dpr = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+    dpr = lite ? 1 : Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    const n = Math.round(clamp(W * H / 6500, 70, 210));
+    const n = lite ? Math.round(clamp(W * H / 14000, 28, 48)) : Math.round(clamp(W * H / 6500, 70, 210));
     ps = Array.from({ length: n }, () => ({
       x: Math.random() * W, y: Math.random() * H, r: .5 + Math.random() * 1.9, ph: Math.random() * 6.28, sp: .5 + Math.random() * 2.2,
       vy: -(.02 + Math.random() * .12), vx: (Math.random() - .5) * .06, c: cols[Math.random() * cols.length | 0], star: Math.random() < .08,
@@ -1350,7 +1362,7 @@ window.__vsfGate = { evaluate: evaluateText };   // exposed for testing the matc
       g.globalAlpha = a; g.fillStyle = p.c;
       if (p.star) {                                   // a few larger 4-point sparkles with a soft glow
         const r = p.r * 3.4 * (.5 + tw * .5);
-        g.save(); g.translate(p.x, p.y); g.shadowColor = '#f0cf7a'; g.shadowBlur = 10;
+        g.save(); g.translate(p.x, p.y); if (!lite) { g.shadowColor = '#f0cf7a'; g.shadowBlur = 10; }
         g.beginPath(); g.moveTo(0, -r * 2); g.quadraticCurveTo(0, 0, r * 2, 0); g.quadraticCurveTo(0, 0, 0, r * 2); g.quadraticCurveTo(0, 0, -r * 2, 0); g.quadraticCurveTo(0, 0, 0, -r * 2); g.fill(); g.restore();
       } else { g.beginPath(); g.arc(p.x, p.y, p.r * (.7 + tw * .5), 0, 6.2832); g.fill(); }
     }
@@ -1359,7 +1371,7 @@ window.__vsfGate = { evaluate: evaluateText };   // exposed for testing the matc
   seed();
   if (reduceMotion) { draw(0, true); addEventListener('resize', () => { seed(); draw(0, true); }); return; }
   addEventListener('resize', seed);
-  (function loop(t) { draw(t, false); requestAnimationFrame(loop); })(performance.now());
+  (function loop(t) { if (!lite || t - lastT > 40) { lastT = t; draw(t, false); } requestAnimationFrame(loop); })(performance.now());
 })();
 
 /* ════════════════ FRAME ════════════════ */
